@@ -1,0 +1,115 @@
+:root {
+  color-scheme: dark;
+  --red: #ff3b30;
+  --yellow: #ffcc00;
+  --green: #34c759;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.dragging {
+  cursor: grabbing;
+}
+
+#stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+/* ---- 灯箱：竖着的红绿灯，整体 26 × 66 ---- */
+#light {
+  box-sizing: border-box;
+  width: 26px;
+  height: 66px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #3a4048 0%, #1a1e23 55%, #101317 100%);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- 灯泡：熄灭时只留一点本色，一眼能看出是红黄绿 ---- */
+.lamp {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transition: background 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.75),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+}
+
+.red {
+  background: radial-gradient(circle at 35% 30%, #4d1f1c, #2a1210 72%);
+}
+
+.yellow {
+  background: radial-gradient(circle at 35% 30%, #4d3f12, #2a2408 72%);
+}
+
+.green {
+  background: radial-gradient(circle at 35% 30%, #174326, #0d2416 72%);
+}
+
+/* ---- 亮灯：红绿常亮，黄灯持续闪 ---- */
+.state-bad .red,
+.state-cut .red {
+  background: radial-gradient(circle at 35% 30%, #ffb0aa, var(--red) 60%, #b3140c 100%);
+  box-shadow:
+    0 0 8px 1px rgba(255, 59, 48, 0.8),
+    inset 0 1px 2px rgba(255, 255, 255, 0.45);
+}
+
+.state-ok .green {
+  background: radial-gradient(circle at 35% 30%, #b6f7c4, var(--green) 60%, #0a7a2f 100%);
+  box-shadow:
+    0 0 8px 1px rgba(52, 199, 89, 0.75),
+    inset 0 1px 2px rgba(255, 255, 255, 0.45);
+}
+
+.state-checking .yellow,
+.state-warn .yellow {
+  background: radial-gradient(circle at 35% 30%, #fff6c2, var(--yellow) 60%, #b8860b 100%);
+  box-shadow:
+    0 0 8px 1px rgba(255, 204, 0, 0.8),
+    inset 0 1px 2px rgba(255, 255, 255, 0.45);
+  animation: blink 0.9s linear infinite;
+}
+
+/* 像真红绿灯那样硬闪：亮 → 灭 */
+@keyframes blink {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-checking .yellow,
+  .state-warn .yellow {
+    animation: none;
+  }
+}

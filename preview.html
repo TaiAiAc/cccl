@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>ClaudeBall 红绿灯预览</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --red: #ff3b30;
+        --yellow: #ffcc00;
+        --green: #34c759;
+      }
+
+      /* ---- 与 ui/style.css 相同的灯样式 ---- */
+      .lamp-wrap {
+        box-sizing: border-box;
+        width: 26px;
+        height: 66px;
+        padding: 5px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 7px;
+        background: linear-gradient(180deg, #3a4048 0%, #1a1e23 55%, #101317 100%);
+        box-shadow:
+          0 1px 3px rgba(0, 0, 0, 0.55),
+          inset 0 1px 0 rgba(255, 255, 255, 0.18),
+          inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+      }
+
+      .lamp {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        transition: background 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+        box-shadow:
+          inset 0 1px 2px rgba(0, 0, 0, 0.75),
+          inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+      }
+
+      .off-red {
+        background: radial-gradient(circle at 35% 30%, #4d1f1c, #2a1210 72%);
+      }
+      .off-yellow {
+        background: radial-gradient(circle at 35% 30%, #4d3f12, #2a2408 72%);
+      }
+      .off-green {
+        background: radial-gradient(circle at 35% 30%, #174326, #0d2416 72%);
+      }
+
+      .s-ok .green {
+        background: radial-gradient(circle at 35% 30%, #b6f7c4, var(--green) 60%, #0a7a2f 100%);
+        box-shadow:
+          0 0 8px 1px rgba(52, 199, 89, 0.75),
+          inset 0 1px 2px rgba(255, 255, 255, 0.45);
+      }
+
+      .s-bad .red {
+        background: radial-gradient(circle at 35% 30%, #ffb0aa, var(--red) 60%, #b3140c 100%);
+        box-shadow:
+          0 0 8px 1px rgba(255, 59, 48, 0.8),
+          inset 0 1px 2px rgba(255, 255, 255, 0.45);
+      }
+
+      .s-warn .yellow {
+        background: radial-gradient(circle at 35% 30%, #fff6c2, var(--yellow) 60%, #b8860b 100%);
+        box-shadow:
+          0 0 8px 1px rgba(255, 204, 0, 0.8),
+          inset 0 1px 2px rgba(255, 255, 255, 0.45);
+        animation: blink 0.9s linear infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        49.9% {
+          opacity: 1;
+        }
+        50%,
+        100% {
+          opacity: 0.1;
+        }
+      }
+
+      /* ---- 预览页排版 ---- */
+      body {
+        margin: 0;
+        padding: 28px 24px 24px;
+        background: #22262b;
+        font: 13px/1.5 system-ui, "Microsoft YaHei", sans-serif;
+        color: #aeb6bf;
+        display: flex;
+        gap: 36px;
+        align-items: flex-start;
+      }
+
+      figure {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .frame {
+        height: 140px;
+        display: grid;
+        place-items: center;
+        padding: 0 12px;
+      }
+
+      .frame .lamp-wrap {
+        transform: scale(2);
+      }
+
+      figcaption {
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      figcaption b {
+        display: block;
+        color: #eef2f6;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <div class="frame">
+        <div class="lamp-wrap s-ok">
+          <div class="lamp off-red"></div>
+          <div class="lamp off-yellow"></div>
+          <div class="lamp green"></div>
+        </div>
+      </div>
+      <figcaption><b>正常</b>绿灯常亮</figcaption>
+    </figure>
+
+    <figure>
+      <div class="frame">
+        <div class="lamp-wrap s-warn">
+          <div class="lamp off-red"></div>
+          <div class="lamp yellow"></div>
+          <div class="lamp off-green"></div>
+        </div>
+      </div>
+      <figcaption><b>检查中 / 在守着</b>黄灯持续闪烁</figcaption>
+    </figure>
+
+    <figure>
+      <div class="frame">
+        <div class="lamp-wrap s-bad">
+          <div class="lamp red"></div>
+          <div class="lamp off-yellow"></div>
+          <div class="lamp off-green"></div>
+        </div>
+      </div>
+      <figcaption><b>异常 / 已切断</b>红灯常亮</figcaption>
+    </figure>
+
+    <figure>
+      <div class="frame" style="height: auto">
+        <div class="lamp-wrap s-ok">
+          <div class="lamp off-red"></div>
+          <div class="lamp off-yellow"></div>
+          <div class="lamp green"></div>
+        </div>
+      </div>
+      <figcaption><b>实际大小</b>26 × 66 px</figcaption>
+    </figure>
+  </body>
+</html>
