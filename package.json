@@ -2,7 +2,7 @@
   "name": "claudeball",
   "private": true,
   "version": "1.0.0",
-  "description": "Claude 网络环境哨兵 · 桌面悬浮球",
+  "description": "Claude 网络环境哨兵 · 桌面红绿灯",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",

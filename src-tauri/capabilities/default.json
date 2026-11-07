@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "悬浮球需要的权限：监听后端事件、调用三个命令、拖动窗口",
+  "description": "红绿灯需要的权限：监听后端事件、调用三个命令、拖动窗口",
   "windows": ["main"],
   "permissions": [
     "core:default",

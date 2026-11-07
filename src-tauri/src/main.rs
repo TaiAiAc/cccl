@@ -1,4 +1,4 @@
-// 桌面悬浮球外壳：窗口、托盘、把引擎事件转成前端能用的状态。
+// 桌面红绿灯外壳：窗口、托盘、把引擎事件转成前端能用的状态。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod engine;
@@ -13,6 +13,7 @@ use engine::probe::detect_channel;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
+use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position, State, Wry};
@@ -214,6 +215,180 @@ fn tray_tooltip(payload: &StatusPayload) -> String {
     }
     text
 }
+
+// ---- 托盘图标：只显示当前那一盏灯，红灯会呼吸 ----
+
+const TRAY_ICON_SIZE: u32 = 32;
+const TRAY_CENTER: f32 = 16.0;
+/// 深色灯圈的外沿
+const TRAY_BEZEL_R: f32 = 14.8;
+/// 灯泡半径
+const TRAY_LAMP_R: f32 = 11.7;
+/// 红黄绿的亮灯颜色，和桌面上的灯一致
+const TRAY_LAMP_COLORS: [[f32; 3]; 3] = [
+    [255.0, 59.0, 48.0],
+    [255.0, 204.0, 0.0],
+    [52.0, 199.0, 89.0],
+];
+
+fn mix(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
+    let t = t.clamp(0.0, 1.0);
+    [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+    ]
+}
+
+/// 按状态现场画一张 32×32 的托盘图标（RGBA）：只有当前状态的那一盏灯。
+/// ok → 绿灯；checking / warn → 黄灯；bad / cut → 红灯。
+/// `pulse` 只在红灯时给值（0~1），用来做呼吸效果；其他灯传 None。
+fn tray_icon(state: &str, pulse: Option<f32>) -> Image<'static> {
+    let color = match state {
+        "ok" => TRAY_LAMP_COLORS[2],
+        "warn" | "checking" => TRAY_LAMP_COLORS[1],
+        _ => TRAY_LAMP_COLORS[0],
+    };
+    // 呼吸：亮度、光晕强度、光晕范围一起起伏
+    let (brightness, glow_alpha, glow_span) = match pulse {
+        Some(p) => {
+            let p = p.clamp(0.0, 1.0);
+            (0.74 + 0.36 * p, 0.26 + 0.64 * p, 3.2 + 3.2 * p)
+        }
+        None => (1.0, 0.55, 4.2),
+    };
+
+    let mut buf = vec![0u8; (TRAY_ICON_SIZE * TRAY_ICON_SIZE * 4) as usize];
+
+    for y in 0..TRAY_ICON_SIZE {
+        for x in 0..TRAY_ICON_SIZE {
+            let px = x as f32 + 0.5;
+            let py = y as f32 + 0.5;
+            let dx = px - TRAY_CENTER;
+            let dy = py - TRAY_CENTER;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            let bezel_cover = (TRAY_BEZEL_R + 0.5 - dist).clamp(0.0, 1.0);
+            // 灯圈外的柔光（让红灯呼吸时能透出来）
+            let halo = if dist > TRAY_BEZEL_R {
+                let h = (1.0 - (dist - TRAY_BEZEL_R) / (glow_span * 0.8)).clamp(0.0, 1.0);
+                (h * h * glow_alpha * 0.6).clamp(0.0, 0.7)
+            } else {
+                0.0
+            };
+
+            if bezel_cover <= 0.0 {
+                if halo <= 0.003 {
+                    continue;
+                }
+                let offset = ((y * TRAY_ICON_SIZE + x) * 4) as usize;
+                buf[offset] = color[0] as u8;
+                buf[offset + 1] = color[1] as u8;
+                buf[offset + 2] = color[2] as u8;
+                buf[offset + 3] = (halo * 255.0) as u8;
+                continue;
+            }
+
+            // ---- 深色灯圈：上亮下暗，外沿一圈高光 ----
+            let t = ((py - 1.2) / 29.6).clamp(0.0, 1.0);
+            let mut rgb = mix([72.0, 79.0, 88.0], [13.0, 16.0, 20.0], t);
+            let rim = 1.0 - ((TRAY_BEZEL_R - dist) / 1.6).clamp(0.0, 1.0);
+            if py < TRAY_CENTER {
+                let top = 1.0 - py / TRAY_CENTER;
+                rgb = mix(rgb, [128.0, 138.0, 150.0], rim * top * 0.55);
+            } else {
+                rgb = mix(rgb, [0.0, 0.0, 0.0], rim * 0.4);
+            }
+
+            // 灯泡和灯圈之间的暗槽 + 光晕
+            let gap = dist - TRAY_LAMP_R;
+            if gap > 0.0 {
+                if gap < 2.2 {
+                    rgb = mix(rgb, [5.0, 6.0, 8.0], (1.0 - gap / 2.2) * 0.8);
+                }
+                let g = (1.0 - gap / glow_span.max(0.1)).clamp(0.0, 1.0);
+                let g = g * g * glow_alpha * 0.8;
+                for c in 0..3 {
+                    rgb[c] = (rgb[c] + color[c] * g).min(255.0);
+                }
+            }
+
+            // ---- 灯泡本体 ----
+            let lamp_cover = (TRAY_LAMP_R + 0.5 - dist).clamp(0.0, 1.0);
+            if lamp_cover > 0.0 {
+                let mut lamp = [
+                    (color[0] * brightness).min(255.0),
+                    (color[1] * brightness).min(255.0),
+                    (color[2] * brightness).min(255.0),
+                ];
+                // 左上角高光
+                let hx = px - (TRAY_CENTER - TRAY_LAMP_R * 0.32);
+                let hy = py - (TRAY_CENTER - TRAY_LAMP_R * 0.32);
+                let hd = (hx * hx + hy * hy).sqrt() / (TRAY_LAMP_R * 0.95);
+                if hd < 1.0 {
+                    lamp = mix(lamp, [255.0, 255.0, 255.0], (1.0 - hd).powf(1.7) * 0.8);
+                }
+                // 下缘变暗，像玻璃灯泡
+                let shade = ((py - (TRAY_CENTER - TRAY_LAMP_R)) / (TRAY_LAMP_R * 2.0))
+                    .clamp(0.0, 1.0);
+                lamp = mix(
+                    lamp,
+                    [lamp[0] * 0.5, lamp[1] * 0.5, lamp[2] * 0.5],
+                    shade * 0.55,
+                );
+                // 灯泡边缘压暗一圈
+                let edge = ((dist - (TRAY_LAMP_R - 1.3)) / 1.3).clamp(0.0, 1.0);
+                lamp = mix(
+                    lamp,
+                    [lamp[0] * 0.55, lamp[1] * 0.55, lamp[2] * 0.55],
+                    edge * 0.45,
+                );
+                rgb = mix(rgb, lamp, lamp_cover);
+            }
+
+            let offset = ((y * TRAY_ICON_SIZE + x) * 4) as usize;
+            buf[offset] = rgb[0].clamp(0.0, 255.0) as u8;
+            buf[offset + 1] = rgb[1].clamp(0.0, 255.0) as u8;
+            buf[offset + 2] = rgb[2].clamp(0.0, 255.0) as u8;
+            buf[offset + 3] = (bezel_cover * 255.0) as u8;
+        }
+    }
+
+    Image::new_owned(buf, TRAY_ICON_SIZE, TRAY_ICON_SIZE)
+}
+
+/// 盯着当前状态刷新托盘图标。红灯时约 10fps 做呼吸，其他颜色只在状态变化时换一次。
+fn spawn_tray_animation(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut last_static: Option<String> = None;
+        let started = std::time::Instant::now();
+        loop {
+            let state = app
+                .try_state::<AppState>()
+                .and_then(|s| s.status.lock().ok().map(|p| p.state.clone()))
+                .unwrap_or_default();
+            let red = state == "bad" || state == "cut";
+
+            if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                if red {
+                    // 1.6 秒一次呼吸
+                    let phase =
+                        (started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).sin()
+                            * 0.5
+                            + 0.5;
+                    let _ = tray.set_icon(Some(tray_icon(&state, Some(phase))));
+                    last_static = None;
+                } else if last_static.as_deref() != Some(state.as_str()) {
+                    let _ = tray.set_icon(Some(tray_icon(&state, None)));
+                    last_static = Some(state);
+                }
+            }
+
+            std::thread::sleep(Duration::from_millis(if red { 100 } else { 250 }));
+        }
+    });
+}
+
 
 fn spawn_monitor(app: AppHandle) {
     std::thread::spawn(move || loop {
@@ -480,9 +655,8 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             }
         });
 
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
-    }
+    // 托盘图标不用默认的圆球，只显示当前那盏灯（启动时是黄灯）
+    builder = builder.icon(tray_icon("checking", None));
     builder.build(app)?;
     Ok(())
 }
@@ -572,10 +746,11 @@ fn main() {
             }
 
             if let Err(err) = setup_tray(&handle) {
-                // 托盘建不出来不该让整个程序挂掉，球还在
+                // 托盘建不出来不该让整个程序挂掉，灯还在
                 eprintln!("[ClaudeBall] 托盘图标创建失败：{err}");
             }
 
+            spawn_tray_animation(handle.clone());
             spawn_monitor(handle);
             Ok(())
         })

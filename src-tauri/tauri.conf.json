@@ -30,6 +30,8 @@
   },
   "bundle": {
     "active": true,
+    "shortDescription": "Claude 网络环境哨兵 · 桌面红绿灯",
+    "longDescription": "一盏浮在桌面上的小红绿灯，盯着 Claude 走的链路：通道一断就封掉 Claude 出网并结束进程，链路恢复后自动放开。托盘图标与悬浮灯同步显示红黄绿状态。",
     "targets": ["msi", "nsis"],
     "icon": [
       "icons/32x32.png",

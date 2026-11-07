@@ -1,7 +1,7 @@
 [package]
 name = "claudeball"
 version = "1.0.0"
-description = "Claude 网络环境哨兵 · 桌面悬浮球"
+description = "Claude 网络环境哨兵 · 桌面红绿灯"
 edition = "2021"
 rust-version = "1.77"
 

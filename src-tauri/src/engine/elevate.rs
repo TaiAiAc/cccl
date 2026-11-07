@@ -52,7 +52,7 @@ mod imp {
     /// 抢一个命名互斥体当单实例锁：已经有了就返回 false。
     ///
     /// 自提权会先起一个普通进程、再被它拉起一个管理员进程；不拦一下的话
-    /// 双击两次就会有两个球、两份托盘图标。锁要在提权之后才建，
+    /// 双击两次就会有两盏灯、两份托盘图标。锁要在提权之后才建，
     /// 否则普通权限的父进程会先把名额占掉。
     pub fn claim_single_instance() -> bool {
         use windows_sys::Win32::Foundation::ERROR_ALREADY_EXISTS;
